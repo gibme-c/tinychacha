@@ -1,0 +1,100 @@
+name: CI Build Tests
+
+on:
+  push:
+  pull_request:
+  release:
+    types: [published]
+  schedule:
+    - cron: '30 3 * * 0'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── Linux gcc-11 ──────────────────────────────────────────
+          - { os: ubuntu-latest, cc: gcc-11,    cxx: g++-11,      name: gcc-11,    config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: ubuntu-latest, cc: gcc-11,    cxx: g++-11,      name: gcc-11,    config: native,   cmake_flags: "" }
+
+          # ── Linux gcc-12 ──────────────────────────────────────────
+          - { os: ubuntu-latest, cc: gcc-12,    cxx: g++-12,      name: gcc-12,    config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: ubuntu-latest, cc: gcc-12,    cxx: g++-12,      name: gcc-12,    config: native,   cmake_flags: "" }
+
+          # ── Linux clang-14 ────────────────────────────────────────
+          - { os: ubuntu-latest, cc: clang-14,  cxx: clang++-14,  name: clang-14,  config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: ubuntu-latest, cc: clang-14,  cxx: clang++-14,  name: clang-14,  config: native,   cmake_flags: "" }
+
+          # ── Linux clang-15 ────────────────────────────────────────
+          - { os: ubuntu-latest, cc: clang-15,  cxx: clang++-15,  name: clang-15,  config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: ubuntu-latest, cc: clang-15,  cxx: clang++-15,  name: clang-15,  config: native,   cmake_flags: "" }
+
+          # ── Linux ARM64 gcc (via ubuntu-24.04-arm) ──────────────────
+          - { os: ubuntu-24.04-arm, cc: gcc,   cxx: g++,     name: gcc,   config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: ubuntu-24.04-arm, cc: gcc,   cxx: g++,     name: gcc,   config: arm64,    cmake_flags: "" }
+
+          # ── Linux ARM64 clang (via ubuntu-24.04-arm) ────────────────
+          - { os: ubuntu-24.04-arm, cc: clang, cxx: clang++, name: clang, config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: ubuntu-24.04-arm, cc: clang, cxx: clang++, name: clang, config: arm64,    cmake_flags: "" }
+
+          # ── macOS Homebrew clang (ARM64 — no x86 SIMD configs) ───
+          - { os: macos-latest, cc: /opt/homebrew/opt/llvm/bin/clang, cxx: /opt/homebrew/opt/llvm/bin/clang++, name: clang, config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: macos-latest, cc: /opt/homebrew/opt/llvm/bin/clang, cxx: /opt/homebrew/opt/llvm/bin/clang++, name: clang, config: arm64,    cmake_flags: "" }
+
+          # ── macOS AppleClang (ARM64 — no x86 SIMD configs) ───────
+          - { os: macos-latest, name: AppleClang, config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: macos-latest, name: AppleClang, config: arm64,    cmake_flags: "" }
+
+          # ── Windows MSVC ──────────────────────────────────────────
+          - { os: windows-latest, name: msvc, config: portable, cmake_flags: "-DFORCE_PORTABLE=ON" }
+          - { os: windows-latest, name: msvc, config: native,   cmake_flags: "" }
+
+          # ── Windows MinGW GCC ─────────────────────────────────────
+          - { os: windows-latest, name: mingw-gcc, config: portable, cmake_flags: "-G \"MinGW Makefiles\" -DCMAKE_CXX_COMPILER=g++ -DFORCE_PORTABLE=ON" }
+          - { os: windows-latest, name: mingw-gcc, config: native,   cmake_flags: "-G \"MinGW Makefiles\" -DCMAKE_CXX_COMPILER=g++" }
+
+    name: ${{ matrix.os }} / ${{ matrix.name }} / ${{ matrix.config }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Compiler (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.cc }}
+          if [[ "${{ matrix.cxx }}" != *"clang"* ]]; then sudo apt-get install -y ${{ matrix.cxx }}; fi
+
+      - name: Install LLVM (macOS)
+        if: matrix.os == 'macos-latest' && matrix.name == 'clang'
+        run: brew install llvm || brew upgrade llvm
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_BENCH=ON ${{ matrix.cmake_flags }}
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Resolve executable paths
+        id: exe
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ] && [ "${{ matrix.name }}" = "msvc" ]; then
+            echo "tests=./build/Release/tinychacha_tests.exe" >> "$GITHUB_OUTPUT"
+            echo "bench=./build/Release/tinychacha_bench.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests=./build/tinychacha_tests" >> "$GITHUB_OUTPUT"
+            echo "bench=./build/tinychacha_bench" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tests
+        shell: bash
+        run: ${{ steps.exe.outputs.tests }}
+
+      - name: Benchmark
+        shell: bash
+        run: ${{ steps.exe.outputs.bench }}
