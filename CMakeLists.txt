@@ -61,6 +61,10 @@ endif()
 target_include_directories(tinychacha PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+# Consumers treat tinychacha headers as system headers (suppresses their warnings)
+target_include_directories(tinychacha SYSTEM INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 target_include_directories(tinychacha PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
