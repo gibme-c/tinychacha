@@ -31,6 +31,7 @@
 // produces byte-identical (ciphertext, tag), and matches the library's
 // dispatched aead_encrypt output.
 
+#include "cpu_features.h"
 #include "internal/chacha20_impl.h"
 #include "internal/endian.h"
 #include "internal/poly1305_impl.h"
@@ -95,25 +96,51 @@ namespace
         poly_fn poly;
     };
 
-    // Static array (rather than vector-returning helper) to sidestep a
-    // GCC 13 -O3 -Werror=nonnull false positive on the NRVO path that fires
-    // when the list collapses to a single entry under FORCE_PORTABLE.
-    const BackendPair kBackendPairs[] = {
-        {tinychacha::internal::chacha20_portable, tinychacha::internal::poly1305_portable},
+    // Populate at runtime based on detected CPU features so an AVX2-only CPU
+    // never executes an AVX-512 instruction (SIGILL). Pre-sized fixed-capacity
+    // array rather than std::vector to avoid a GCC 13 -O3 -Werror=nonnull
+    // false positive on the NRVO path under FORCE_PORTABLE.
+    struct BackendPairList
+    {
+        BackendPair data[10];
+        size_t count = 0;
+        void add(chacha_fn c, poly_fn p)
+        {
+            data[count++] = {c, p};
+        }
+    };
+
+    BackendPairList collect_backend_pairs()
+    {
+        using namespace tinychacha::internal;
+        BackendPairList out;
+        out.add(chacha20_portable, poly1305_portable);
 #if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
     && !defined(TINYCHACHA_FORCE_PORTABLE)
-        {tinychacha::internal::chacha20_avx2, tinychacha::internal::poly1305_portable},
-        {tinychacha::internal::chacha20_avx512, tinychacha::internal::poly1305_portable},
-        {tinychacha::internal::chacha20_portable, tinychacha::internal::poly1305_avx2},
-        {tinychacha::internal::chacha20_avx2, tinychacha::internal::poly1305_avx2},
-        {tinychacha::internal::chacha20_avx512, tinychacha::internal::poly1305_avx2},
+        const auto &f = tinychacha::cpu::detect();
+        if (f.avx2)
+        {
+            out.add(chacha20_avx2, poly1305_portable);
+            out.add(chacha20_portable, poly1305_avx2);
+            out.add(chacha20_avx2, poly1305_avx2);
+        }
+        if (f.avx512f)
+        {
+            out.add(chacha20_avx512, poly1305_portable);
+            if (f.avx2)
+                out.add(chacha20_avx512, poly1305_avx2);
+        }
 #endif
 #if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
-        {tinychacha::internal::chacha20_neon, tinychacha::internal::poly1305_portable},
-        {tinychacha::internal::chacha20_portable, tinychacha::internal::poly1305_neon},
-        {tinychacha::internal::chacha20_neon, tinychacha::internal::poly1305_neon},
+        if (tinychacha::cpu::detect().neon)
+        {
+            out.add(chacha20_neon, poly1305_portable);
+            out.add(chacha20_portable, poly1305_neon);
+            out.add(chacha20_neon, poly1305_neon);
+        }
 #endif
-    };
+        return out;
+    }
 } // namespace
 
 TEST(backend_equivalence_aead_all_pairs)
@@ -128,7 +155,7 @@ TEST(backend_equivalence_aead_all_pairs)
 
     std::vector<uint8_t> lib_key(key, key + 32);
     std::vector<uint8_t> lib_nonce(nonce, nonce + 12);
-    constexpr size_t kNumPairs = sizeof(kBackendPairs) / sizeof(kBackendPairs[0]);
+    auto pairs = collect_backend_pairs();
 
     for (size_t aad_len : kAadSizes)
     {
@@ -145,8 +172,8 @@ TEST(backend_equivalence_aead_all_pairs)
             std::vector<uint8_t> ref_ct(pt_len);
             uint8_t ref_tag[16];
             aead_encrypt_ref(
-                kBackendPairs[0].chacha,
-                kBackendPairs[0].poly,
+                pairs.data[0].chacha,
+                pairs.data[0].poly,
                 key,
                 nonce,
                 aad.data(),
@@ -156,13 +183,13 @@ TEST(backend_equivalence_aead_all_pairs)
                 ref_ct.data(),
                 ref_tag);
 
-            for (size_t p = 1; p < kNumPairs; ++p)
+            for (size_t p = 1; p < pairs.count; ++p)
             {
                 std::vector<uint8_t> got_ct(pt_len);
                 uint8_t got_tag[16];
                 aead_encrypt_ref(
-                    kBackendPairs[p].chacha,
-                    kBackendPairs[p].poly,
+                    pairs.data[p].chacha,
+                    pairs.data[p].poly,
                     key,
                     nonce,
                     aad.data(),

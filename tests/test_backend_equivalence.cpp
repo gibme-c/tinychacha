@@ -35,6 +35,7 @@
 // rewrite. A divergence here means a real correctness regression even if the
 // RFC 8439 vector tests happen to pass.
 
+#include "cpu_features.h"
 #include "internal/chacha20_impl.h"
 #include "internal/poly1305_impl.h"
 #include "test_harness.h"
@@ -44,6 +45,23 @@
 #include <vector>
 
 using test::fill_pattern;
+
+// Runtime CPU feature gates. Compile-time arch guards are not sufficient on
+// x86: a build targeting x86_64 may run on a CPU that lacks AVX2 or AVX-512
+// (e.g. GitHub Actions Windows runners vary across batches). Invoking an
+// unsupported instruction raises SIGILL. These helpers bypass the backend
+// call entirely when the host CPU cannot execute it.
+#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
+    && !defined(TINYCHACHA_FORCE_PORTABLE)
+#define TC_HAVE_X86_SIMD 1
+#else
+#define TC_HAVE_X86_SIMD 0
+#endif
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
+#define TC_HAVE_ARM_SIMD 1
+#else
+#define TC_HAVE_ARM_SIMD 0
+#endif
 
 // -------- ChaCha20 cross-backend equivalence --------
 
@@ -71,20 +89,21 @@ TEST(backend_equivalence_chacha20_portable_vs_simd)
             std::vector<uint8_t> ref(size);
             tinychacha::internal::chacha20_portable(key, nonce, counter, input.data(), size, ref.data());
 
-#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
-    && !defined(TINYCHACHA_FORCE_PORTABLE)
+#if TC_HAVE_X86_SIMD
+            if (tinychacha::cpu::detect().avx2)
             {
                 std::vector<uint8_t> got(size);
                 tinychacha::internal::chacha20_avx2(key, nonce, counter, input.data(), size, got.data());
                 ASSERT_BYTES_EQ(got.data(), ref.data(), size);
             }
+            if (tinychacha::cpu::detect().avx512f)
             {
                 std::vector<uint8_t> got(size);
                 tinychacha::internal::chacha20_avx512(key, nonce, counter, input.data(), size, got.data());
                 ASSERT_BYTES_EQ(got.data(), ref.data(), size);
             }
 #endif
-#if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
+#if TC_HAVE_ARM_SIMD
             {
                 std::vector<uint8_t> got(size);
                 tinychacha::internal::chacha20_neon(key, nonce, counter, input.data(), size, got.data());
@@ -113,15 +132,16 @@ TEST(backend_equivalence_poly1305_portable_vs_simd)
         uint8_t ref[16];
         tinychacha::internal::poly1305_portable(key, msg.data(), size, ref);
 
-#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
-    && !defined(TINYCHACHA_FORCE_PORTABLE)
+#if TC_HAVE_X86_SIMD
+        if (tinychacha::cpu::detect().avx2)
         {
             uint8_t got[16];
             tinychacha::internal::poly1305_avx2(key, msg.data(), size, got);
             ASSERT_BYTES_EQ(got, ref, 16);
         }
 #endif
-#if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
+#if TC_HAVE_ARM_SIMD
+        if (tinychacha::cpu::detect().neon)
         {
             uint8_t got[16];
             tinychacha::internal::poly1305_neon(key, msg.data(), size, got);
@@ -155,11 +175,13 @@ TEST(backend_equivalence_poly1305_multi_key)
             uint8_t ref[16];
             tinychacha::internal::poly1305_portable(key, msg.data(), size, ref);
 
-#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
-    && !defined(TINYCHACHA_FORCE_PORTABLE)
-            uint8_t got[16];
-            tinychacha::internal::poly1305_avx2(key, msg.data(), size, got);
-            ASSERT_BYTES_EQ(got, ref, 16);
+#if TC_HAVE_X86_SIMD
+            if (tinychacha::cpu::detect().avx2)
+            {
+                uint8_t got[16];
+                tinychacha::internal::poly1305_avx2(key, msg.data(), size, got);
+                ASSERT_BYTES_EQ(got, ref, 16);
+            }
 #endif
         }
     }

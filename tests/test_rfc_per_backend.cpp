@@ -30,6 +30,7 @@
 // bypassing the runtime dispatcher — catches the failure mode where dispatch
 // is hardwired to portable while SIMD backends are silently broken.
 
+#include "cpu_features.h"
 #include "internal/chacha20_impl.h"
 #include "internal/poly1305_impl.h"
 #include "test_harness.h"
@@ -42,35 +43,69 @@
 
 namespace
 {
-    // Static arrays (rather than vector-returning helpers) to sidestep a
-    // GCC 13 -O3 -Werror=nonnull false positive on the NRVO path that fires
-    // when only a single backend is compiled in (FORCE_PORTABLE).
-    const tinychacha::internal::chacha20_block_fn kChachaBackends[] = {
-        tinychacha::internal::chacha20_portable,
-#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
-    && !defined(TINYCHACHA_FORCE_PORTABLE)
-        tinychacha::internal::chacha20_avx2,
-        tinychacha::internal::chacha20_avx512,
-#endif
-#if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
-        tinychacha::internal::chacha20_neon,
-#endif
+    // Lists populated at runtime so we only call backends whose instruction
+    // set the host CPU actually supports. Fixed-capacity inline arrays avoid a
+    // GCC 13 -O3 -Werror=nonnull false positive on std::vector NRVO paths.
+    struct ChachaList
+    {
+        tinychacha::internal::chacha20_block_fn data[4];
+        size_t count = 0;
+        void add(tinychacha::internal::chacha20_block_fn fn)
+        {
+            data[count++] = fn;
+        }
+    };
+    struct PolyList
+    {
+        tinychacha::internal::poly1305_mac_fn data[4];
+        size_t count = 0;
+        void add(tinychacha::internal::poly1305_mac_fn fn)
+        {
+            data[count++] = fn;
+        }
     };
 
-    const tinychacha::internal::poly1305_mac_fn kPolyBackends[] = {
-        tinychacha::internal::poly1305_portable,
+    ChachaList collect_chacha_backends()
+    {
+        using namespace tinychacha::internal;
+        ChachaList out;
+        out.add(chacha20_portable);
 #if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
     && !defined(TINYCHACHA_FORCE_PORTABLE)
-        tinychacha::internal::poly1305_avx2,
+        const auto &f = tinychacha::cpu::detect();
+        if (f.avx2)
+            out.add(chacha20_avx2);
+        if (f.avx512f)
+            out.add(chacha20_avx512);
 #endif
 #if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
-        tinychacha::internal::poly1305_neon,
+        if (tinychacha::cpu::detect().neon)
+            out.add(chacha20_neon);
 #endif
-    };
+        return out;
+    }
+
+    PolyList collect_poly_backends()
+    {
+        using namespace tinychacha::internal;
+        PolyList out;
+        out.add(poly1305_portable);
+#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
+    && !defined(TINYCHACHA_FORCE_PORTABLE)
+        if (tinychacha::cpu::detect().avx2)
+            out.add(poly1305_avx2);
+#endif
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
+        if (tinychacha::cpu::detect().neon)
+            out.add(poly1305_neon);
+#endif
+        return out;
+    }
 } // namespace
 
 TEST(rfc_chacha20_encryption_vectors_per_backend)
 {
+    auto backends = collect_chacha_backends();
     for (const auto &v : chacha20_encryption_vectors)
     {
         auto key = test::hex_to_bytes(v.key);
@@ -81,10 +116,10 @@ TEST(rfc_chacha20_encryption_vectors_per_backend)
         ASSERT_EQ(nonce.size(), static_cast<size_t>(12));
         ASSERT_EQ(pt.size(), expected.size());
 
-        for (auto fn : kChachaBackends)
+        for (size_t i = 0; i < backends.count; ++i)
         {
             std::vector<uint8_t> out(pt.size());
-            fn(key.data(), nonce.data(), v.counter, pt.data(), pt.size(), out.data());
+            backends.data[i](key.data(), nonce.data(), v.counter, pt.data(), pt.size(), out.data());
             ASSERT_BYTES_EQ(out.data(), expected.data(), pt.size());
         }
     }
@@ -92,6 +127,7 @@ TEST(rfc_chacha20_encryption_vectors_per_backend)
 
 TEST(rfc_chacha20_keystream_vectors_per_backend)
 {
+    auto backends = collect_chacha_backends();
     for (const auto &v : chacha20_keystream_vectors)
     {
         auto key = test::hex_to_bytes(v.key);
@@ -102,10 +138,10 @@ TEST(rfc_chacha20_keystream_vectors_per_backend)
         ASSERT_EQ(expected.size(), static_cast<size_t>(64));
 
         std::vector<uint8_t> zeros(64, 0);
-        for (auto fn : kChachaBackends)
+        for (size_t i = 0; i < backends.count; ++i)
         {
             std::vector<uint8_t> out(64);
-            fn(key.data(), nonce.data(), v.counter, zeros.data(), 64, out.data());
+            backends.data[i](key.data(), nonce.data(), v.counter, zeros.data(), 64, out.data());
             ASSERT_BYTES_EQ(out.data(), expected.data(), 64);
         }
     }
@@ -113,6 +149,7 @@ TEST(rfc_chacha20_keystream_vectors_per_backend)
 
 TEST(rfc_poly1305_mac_vectors_per_backend)
 {
+    auto backends = collect_poly_backends();
     for (const auto &v : poly1305_rfc_vectors)
     {
         auto key = test::hex_to_bytes(v.key);
@@ -121,10 +158,10 @@ TEST(rfc_poly1305_mac_vectors_per_backend)
         ASSERT_EQ(key.size(), static_cast<size_t>(32));
         ASSERT_EQ(expected.size(), static_cast<size_t>(16));
 
-        for (auto fn : kPolyBackends)
+        for (size_t i = 0; i < backends.count; ++i)
         {
             uint8_t tag[16];
-            fn(key.data(), msg.data(), msg.size(), tag);
+            backends.data[i](key.data(), msg.data(), msg.size(), tag);
             ASSERT_BYTES_EQ(tag, expected.data(), 16);
         }
     }

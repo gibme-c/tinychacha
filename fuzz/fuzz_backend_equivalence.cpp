@@ -32,6 +32,7 @@
 //
 // Input layout: [32 key][12 nonce][4 counter_le][...payload]
 
+#include "cpu_features.h"
 #include "internal/chacha20_impl.h"
 #include "internal/endian.h"
 #include "internal/poly1305_impl.h"
@@ -55,6 +56,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (payload_len > kMaxPayload)
         return 0;
 
+    const auto &features = tinychacha::cpu::detect();
+
     if (!tinychacha::internal::counter_would_overflow(counter, payload_len))
     {
         uint8_t ref[kMaxPayload];
@@ -69,11 +72,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         };
 #if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
     && !defined(TINYCHACHA_FORCE_PORTABLE)
-        check_chacha(tinychacha::internal::chacha20_avx2);
-        check_chacha(tinychacha::internal::chacha20_avx512);
+        if (features.avx2)
+            check_chacha(tinychacha::internal::chacha20_avx2);
+        if (features.avx512f)
+            check_chacha(tinychacha::internal::chacha20_avx512);
 #endif
 #if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
-        check_chacha(tinychacha::internal::chacha20_neon);
+        if (features.neon)
+            check_chacha(tinychacha::internal::chacha20_neon);
 #endif
     }
 
@@ -89,10 +95,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     };
 #if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
     && !defined(TINYCHACHA_FORCE_PORTABLE)
-    check_poly(tinychacha::internal::poly1305_avx2);
+    if (features.avx2)
+        check_poly(tinychacha::internal::poly1305_avx2);
 #endif
 #if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
-    check_poly(tinychacha::internal::poly1305_neon);
+    if (features.neon)
+        check_poly(tinychacha::internal::poly1305_neon);
 #endif
 
     return 0;
