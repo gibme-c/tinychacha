@@ -220,6 +220,141 @@ TEST(fuzz_poly1305_roundtrip)
     }
 }
 
+static void fuzz_chacha20_inplace_one(const uint8_t *data, size_t size)
+{
+    if (size < 48)
+        return;
+    const uint8_t *key = data;
+    const uint8_t *nonce = data + 32;
+    uint32_t counter = static_cast<uint32_t>(data[44]) | (static_cast<uint32_t>(data[45]) << 8)
+                       | (static_cast<uint32_t>(data[46]) << 16) | (static_cast<uint32_t>(data[47]) << 24);
+    size_t pt_len = size - 48;
+
+    std::vector<uint8_t> original(pt_len);
+    if (pt_len > 0)
+        std::memcpy(original.data(), data + 48, pt_len);
+
+    std::vector<uint8_t> work(original);
+    int rc = tinychacha_chacha20(key, nonce, counter, work.data(), pt_len, work.data());
+    if (rc != TINYCHACHA_OK)
+        return; // counter overflow is acceptable; skip
+    rc = tinychacha_chacha20(key, nonce, counter, work.data(), pt_len, work.data());
+    ASSERT_EQ(rc, TINYCHACHA_OK);
+    if (pt_len > 0)
+        ASSERT_BYTES_EQ(work.data(), original.data(), pt_len);
+}
+
+TEST(fuzz_chacha20_inplace_roundtrip)
+{
+    prng_state = 0xb1b2b3b4c1c2c3c4ULL;
+    static const size_t sizes[] = {48, 49, 112, 127, 128, 192, 512, 1024, 4096};
+    for (size_t s : sizes)
+    {
+        for (int i = 0; i < 50; ++i)
+        {
+            std::vector<uint8_t> buf(s);
+            fill_random(buf.data(), s);
+            fuzz_chacha20_inplace_one(buf.data(), s);
+        }
+    }
+}
+
+TEST(fuzz_chacha20_counter_boundary)
+{
+    prng_state = 0xcafed00dbeefface;
+
+    uint8_t key[32];
+    uint8_t nonce[12];
+    fill_random(key, 32);
+    fill_random(nonce, 12);
+
+    for (int i = 0; i < 400; ++i)
+    {
+        size_t len = static_cast<size_t>(xorshift64() % 512u);
+        uint32_t counter = 0xFFFFFF00u + static_cast<uint32_t>(xorshift64() & 0xFFu);
+
+        std::vector<uint8_t> pt(len);
+        fill_random(pt.data(), len);
+        std::vector<uint8_t> ct(len);
+        int rc = tinychacha_chacha20(key, nonce, counter, pt.data(), len, ct.data());
+        if (rc == TINYCHACHA_OK)
+        {
+            std::vector<uint8_t> rt(len);
+            int rc2 = tinychacha_chacha20(key, nonce, counter, ct.data(), len, rt.data());
+            ASSERT_EQ(rc2, TINYCHACHA_OK);
+            if (len > 0)
+                ASSERT_BYTES_EQ(rt.data(), pt.data(), len);
+        }
+        else
+        {
+            ASSERT_EQ(rc, TINYCHACHA_INVALID_INPUT_SIZE);
+        }
+    }
+}
+
+TEST(fuzz_poly1305_partial_blocks)
+{
+    prng_state = 0x0123456789abcdefULL;
+
+    uint8_t key[32];
+    fill_random(key, 32);
+
+    auto run_at = [&](size_t size)
+    {
+        std::vector<uint8_t> msg(size);
+        fill_random(msg.data(), size);
+        uint8_t tag[16];
+        int rc = tinychacha_poly1305_mac(key, msg.data(), size, tag);
+        ASSERT_EQ(rc, TINYCHACHA_OK);
+        int vrc = tinychacha_poly1305_verify(key, msg.data(), size, tag);
+        ASSERT_EQ(vrc, TINYCHACHA_OK);
+        // Flip every byte of tag once; must fail for all.
+        for (int i = 0; i < 16; ++i)
+        {
+            uint8_t bad[16];
+            std::memcpy(bad, tag, 16);
+            bad[i] ^= 0xFF;
+            int brc = tinychacha_poly1305_verify(key, msg.data(), size, bad);
+            ASSERT_EQ(brc, TINYCHACHA_AUTH_FAILED);
+        }
+    };
+
+    for (size_t s = 1; s <= 48; ++s)
+        run_at(s);
+    for (size_t s = 63; s <= 66; ++s)
+        run_at(s);
+    for (size_t s = 127; s <= 130; ++s)
+        run_at(s);
+}
+
+// Exercises multi-block SIMD loops. Kept small so ctest stays fast.
+TEST(fuzz_aead_large_roundtrip)
+{
+    prng_state = 0xfacefeed12345678ULL;
+
+    uint8_t key[32];
+    uint8_t nonce[12];
+    fill_random(key, 32);
+    fill_random(nonce, 12);
+    uint8_t aad[64];
+    fill_random(aad, 64);
+
+    static const size_t sizes[] = {8192, 16384, 65536, 131072};
+    for (size_t s : sizes)
+    {
+        std::vector<uint8_t> pt(s);
+        fill_random(pt.data(), s);
+        std::vector<uint8_t> ct(s);
+        uint8_t tag[16];
+        int rc = tinychacha_aead_encrypt(key, nonce, aad, 64, pt.data(), s, ct.data(), s, tag);
+        ASSERT_EQ(rc, TINYCHACHA_OK);
+        std::vector<uint8_t> rt(s);
+        rc = tinychacha_aead_decrypt(key, nonce, aad, 64, ct.data(), s, rt.data(), s, tag);
+        ASSERT_EQ(rc, TINYCHACHA_OK);
+        ASSERT_BYTES_EQ(rt.data(), pt.data(), s);
+    }
+}
+
 TEST(fuzz_aead_roundtrip)
 {
     prng_state = 0xabad1deacafebabe;

@@ -112,6 +112,18 @@ namespace test
         return out;
     }
 
+    /* Deterministic pseudo-random fill (LCG). Bit-stable across stdlibs so
+       test byte patterns are reproducible in CI logs. */
+    inline void fill_pattern(uint8_t *buf, size_t len, uint32_t seed)
+    {
+        uint32_t s = seed * 0x9E3779B1u + 0x85EBCA6Bu;
+        for (size_t i = 0; i < len; ++i)
+        {
+            s = s * 1664525u + 1013904223u;
+            buf[i] = static_cast<uint8_t>((s >> 24) ^ (s >> 16));
+        }
+    }
+
     /* Bytes to hex string */
     inline std::string bytes_to_hex(const uint8_t *data, size_t len)
     {

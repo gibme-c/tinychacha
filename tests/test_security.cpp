@@ -415,3 +415,167 @@ TEST(aead_decrypt_rejects_impossible_aad_len_c_api)
     int rc = tinychacha_aead_decrypt(key, nonce, dummy_aad, SIZE_MAX - 16, dummy_ct, 1, dummy_pt, 1, tag);
     ASSERT_EQ(rc, TINYCHACHA_INVALID_INPUT_SIZE);
 }
+
+// --- Additional counter-overflow boundary cases ---
+
+TEST(counter_overflow_chacha20_multi_block_at_boundary)
+{
+    // counter = 0xFFFFFFFE with 128 bytes needs blocks at 0xFFFFFFFE and
+    // 0xFFFFFFFF — exactly fits, must succeed.
+    uint8_t key[32] = {};
+    uint8_t nonce[12] = {};
+    uint8_t data[128] = {};
+    uint8_t out[128] = {};
+    ASSERT_EQ(tinychacha_chacha20(key, nonce, 0xFFFFFFFEu, data, 128, out), TINYCHACHA_OK);
+}
+
+TEST(counter_overflow_chacha20_multi_block_one_byte_over)
+{
+    // counter = 0xFFFFFFFE with 129 bytes needs blocks at 0xFFFFFFFE,
+    // 0xFFFFFFFF, and 0x00000000 — must be rejected.
+    uint8_t key[32] = {};
+    uint8_t nonce[12] = {};
+    uint8_t data[129] = {};
+    uint8_t out[129] = {};
+    ASSERT_EQ(tinychacha_chacha20(key, nonce, 0xFFFFFFFEu, data, 129, out), TINYCHACHA_INVALID_INPUT_SIZE);
+}
+
+TEST(counter_overflow_chacha20_zero_len_at_max_counter)
+{
+    // Zero-length input at any counter (including 0xFFFFFFFF) must succeed
+    // without consuming any block.
+    uint8_t key[32] = {};
+    uint8_t nonce[12] = {};
+    ASSERT_EQ(tinychacha_chacha20(key, nonce, 0xFFFFFFFFu, nullptr, 0, nullptr), TINYCHACHA_OK);
+}
+
+// --- C API output buffer size mismatch handling ---
+
+TEST(c_api_aead_encrypt_undersized_output_rejects)
+{
+    uint8_t key[32] = {};
+    uint8_t nonce[12] = {};
+    uint8_t pt[32] = {};
+    uint8_t ct[32] = {};
+    uint8_t tag[16] = {};
+    ASSERT_EQ(tinychacha_aead_encrypt(key, nonce, nullptr, 0, pt, 32, ct, 31, tag), TINYCHACHA_INVALID_INPUT_SIZE);
+}
+
+TEST(c_api_aead_decrypt_undersized_output_rejects)
+{
+    uint8_t key[32] = {};
+    uint8_t nonce[12] = {};
+    uint8_t ct[32] = {};
+    uint8_t pt[32] = {};
+    uint8_t tag[16] = {};
+    ASSERT_EQ(tinychacha_aead_decrypt(key, nonce, nullptr, 0, ct, 32, pt, 31, tag), TINYCHACHA_INVALID_INPUT_SIZE);
+}
+
+TEST(c_api_aead_encrypt_oversized_output_does_not_overrun)
+{
+    // Oversized output buffer is allowed. Only the first plaintext_len bytes
+    // should be written; trailing sentinel bytes must remain untouched.
+    uint8_t key[32] = {};
+    uint8_t nonce[12] = {};
+    uint8_t pt[32] = {};
+    for (int i = 0; i < 32; ++i)
+        pt[i] = static_cast<uint8_t>(i);
+    uint8_t ct[64];
+    std::memset(ct, 0xAB, sizeof(ct));
+    uint8_t tag[16] = {};
+    ASSERT_EQ(tinychacha_aead_encrypt(key, nonce, nullptr, 0, pt, 32, ct, 64, tag), TINYCHACHA_OK);
+    for (int i = 32; i < 64; ++i)
+        ASSERT_EQ(ct[i], static_cast<uint8_t>(0xAB));
+}
+
+// --- Systematic tamper loop: every byte of CT and AAD, every tag byte ---
+
+TEST(aead_tamper_every_ciphertext_byte_fails)
+{
+    uint8_t key[32];
+    uint8_t nonce[12];
+    for (int i = 0; i < 32; ++i)
+        key[i] = static_cast<uint8_t>(i);
+    for (int i = 0; i < 12; ++i)
+        nonce[i] = static_cast<uint8_t>(0x40 + i);
+
+    uint8_t aad[16];
+    for (int i = 0; i < 16; ++i)
+        aad[i] = static_cast<uint8_t>(0x80 + i);
+
+    const size_t pt_len = 64;
+    uint8_t pt[pt_len];
+    for (size_t i = 0; i < pt_len; ++i)
+        pt[i] = static_cast<uint8_t>(i * 7u);
+
+    uint8_t ct[pt_len];
+    uint8_t tag[16];
+    ASSERT_EQ(tinychacha_aead_encrypt(key, nonce, aad, 16, pt, pt_len, ct, pt_len, tag), TINYCHACHA_OK);
+
+    for (size_t i = 0; i < pt_len; ++i)
+    {
+        uint8_t bad_ct[pt_len];
+        std::memcpy(bad_ct, ct, pt_len);
+        bad_ct[i] ^= 0x01;
+        uint8_t out_pt[pt_len];
+        int rc = tinychacha_aead_decrypt(key, nonce, aad, 16, bad_ct, pt_len, out_pt, pt_len, tag);
+        ASSERT_EQ(rc, TINYCHACHA_AUTH_FAILED);
+    }
+}
+
+TEST(aead_tamper_every_aad_byte_fails)
+{
+    uint8_t key[32];
+    uint8_t nonce[12];
+    for (int i = 0; i < 32; ++i)
+        key[i] = static_cast<uint8_t>(i);
+    for (int i = 0; i < 12; ++i)
+        nonce[i] = static_cast<uint8_t>(0x40 + i);
+
+    const size_t aad_len = 32;
+    uint8_t aad[aad_len];
+    for (size_t i = 0; i < aad_len; ++i)
+        aad[i] = static_cast<uint8_t>(0x80 + i);
+
+    const size_t pt_len = 48;
+    uint8_t pt[pt_len];
+    for (size_t i = 0; i < pt_len; ++i)
+        pt[i] = static_cast<uint8_t>(i);
+
+    uint8_t ct[pt_len];
+    uint8_t tag[16];
+    ASSERT_EQ(tinychacha_aead_encrypt(key, nonce, aad, aad_len, pt, pt_len, ct, pt_len, tag), TINYCHACHA_OK);
+
+    for (size_t i = 0; i < aad_len; ++i)
+    {
+        uint8_t bad_aad[aad_len];
+        std::memcpy(bad_aad, aad, aad_len);
+        bad_aad[i] ^= 0x80;
+        uint8_t out_pt[pt_len];
+        int rc = tinychacha_aead_decrypt(key, nonce, bad_aad, aad_len, ct, pt_len, out_pt, pt_len, tag);
+        ASSERT_EQ(rc, TINYCHACHA_AUTH_FAILED);
+    }
+}
+
+TEST(aead_tamper_every_tag_byte_fails)
+{
+    uint8_t key[32] = {};
+    uint8_t nonce[12] = {};
+    uint8_t pt[32];
+    for (int i = 0; i < 32; ++i)
+        pt[i] = static_cast<uint8_t>(i);
+
+    uint8_t ct[32];
+    uint8_t tag[16];
+    ASSERT_EQ(tinychacha_aead_encrypt(key, nonce, nullptr, 0, pt, 32, ct, 32, tag), TINYCHACHA_OK);
+
+    for (int i = 0; i < 16; ++i)
+    {
+        uint8_t bad_tag[16];
+        std::memcpy(bad_tag, tag, 16);
+        bad_tag[i] ^= 0xFF;
+        uint8_t out_pt[32];
+        int rc = tinychacha_aead_decrypt(key, nonce, nullptr, 0, ct, 32, out_pt, 32, bad_tag);
+        ASSERT_EQ(rc, TINYCHACHA_AUTH_FAILED);
+    }
+}

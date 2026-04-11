@@ -9,6 +9,11 @@ add_executable(tinychacha_tests
     test_fuzz.cpp
     test_security.cpp
     test_backend_equivalence.cpp
+    test_primitives.cpp
+    test_inplace.cpp
+    test_determinism.cpp
+    test_aead_backend_equivalence.cpp
+    test_rfc_per_backend.cpp
 )
 
 target_link_libraries(tinychacha_tests PRIVATE tinychacha)

@@ -11,6 +11,9 @@ set(FUZZ_TARGETS
     fuzz_chacha20
     fuzz_poly1305
     fuzz_aead
+    fuzz_aead_decrypt
+    fuzz_backend_equivalence
+    fuzz_aead_structured
 )
 
 foreach(target ${FUZZ_TARGETS})

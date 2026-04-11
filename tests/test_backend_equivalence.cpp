@@ -43,22 +43,7 @@
 #include <cstring>
 #include <vector>
 
-namespace
-{
-
-    // Deterministic pseudo-random fill (linear congruential). We intentionally
-    // avoid std::random so the test is bit-stable across stdlibs.
-    void fill_pattern(uint8_t *buf, size_t len, uint32_t seed)
-    {
-        uint32_t s = seed * 0x9E3779B1u + 0x85EBCA6Bu;
-        for (size_t i = 0; i < len; ++i)
-        {
-            s = s * 1664525u + 1013904223u;
-            buf[i] = static_cast<uint8_t>((s >> 24) ^ (s >> 16));
-        }
-    }
-
-} // namespace
+using test::fill_pattern;
 
 // -------- ChaCha20 cross-backend equivalence --------
 
@@ -86,7 +71,8 @@ TEST(backend_equivalence_chacha20_portable_vs_simd)
             std::vector<uint8_t> ref(size);
             tinychacha::internal::chacha20_portable(key, nonce, counter, input.data(), size, ref.data());
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
+    && !defined(TINYCHACHA_FORCE_PORTABLE)
             {
                 std::vector<uint8_t> got(size);
                 tinychacha::internal::chacha20_avx2(key, nonce, counter, input.data(), size, got.data());
@@ -98,7 +84,7 @@ TEST(backend_equivalence_chacha20_portable_vs_simd)
                 ASSERT_BYTES_EQ(got.data(), ref.data(), size);
             }
 #endif
-#if defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
             {
                 std::vector<uint8_t> got(size);
                 tinychacha::internal::chacha20_neon(key, nonce, counter, input.data(), size, got.data());
@@ -127,14 +113,15 @@ TEST(backend_equivalence_poly1305_portable_vs_simd)
         uint8_t ref[16];
         tinychacha::internal::poly1305_portable(key, msg.data(), size, ref);
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
+    && !defined(TINYCHACHA_FORCE_PORTABLE)
         {
             uint8_t got[16];
             tinychacha::internal::poly1305_avx2(key, msg.data(), size, got);
             ASSERT_BYTES_EQ(got, ref, 16);
         }
 #endif
-#if defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)) && !defined(TINYCHACHA_FORCE_PORTABLE)
         {
             uint8_t got[16];
             tinychacha::internal::poly1305_neon(key, msg.data(), size, got);
@@ -168,7 +155,8 @@ TEST(backend_equivalence_poly1305_multi_key)
             uint8_t ref[16];
             tinychacha::internal::poly1305_portable(key, msg.data(), size, ref);
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
+    && !defined(TINYCHACHA_FORCE_PORTABLE)
             uint8_t got[16];
             tinychacha::internal::poly1305_avx2(key, msg.data(), size, got);
             ASSERT_BYTES_EQ(got, ref, 16);
