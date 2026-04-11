@@ -27,41 +27,49 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "test_harness.h"
+
 #include <tinychacha/common.h>
 
-TEST(generate_nonce_returns_12_bytes) {
-  auto nonce = tinychacha::generate_nonce();
-  ASSERT_EQ(nonce.size(), static_cast<size_t>(12));
+TEST(generate_nonce_returns_12_bytes)
+{
+    auto nonce = tinychacha::generate_nonce();
+    ASSERT_EQ(nonce.size(), static_cast<size_t>(12));
 }
 
-TEST(generate_nonce_nonzero) {
-  auto nonce = tinychacha::generate_nonce();
-  ASSERT_EQ(nonce.size(), static_cast<size_t>(12));
+TEST(generate_nonce_nonzero)
+{
+    auto nonce = tinychacha::generate_nonce();
+    ASSERT_EQ(nonce.size(), static_cast<size_t>(12));
 
-  // Check not all zeros (extremely unlikely with CSPRNG)
-  bool all_zero = true;
-  for (auto b : nonce) {
-    if (b != 0) {
-      all_zero = false;
-      break;
+    // Check not all zeros (extremely unlikely with CSPRNG)
+    bool all_zero = true;
+    for (auto b : nonce)
+    {
+        if (b != 0)
+        {
+            all_zero = false;
+            break;
+        }
     }
-  }
-  ASSERT_TRUE(!all_zero);
+    ASSERT_TRUE(!all_zero);
 }
 
-TEST(generate_nonce_unique) {
-  auto n1 = tinychacha::generate_nonce();
-  auto n2 = tinychacha::generate_nonce();
-  ASSERT_EQ(n1.size(), static_cast<size_t>(12));
-  ASSERT_EQ(n2.size(), static_cast<size_t>(12));
+TEST(generate_nonce_unique)
+{
+    auto n1 = tinychacha::generate_nonce();
+    auto n2 = tinychacha::generate_nonce();
+    ASSERT_EQ(n1.size(), static_cast<size_t>(12));
+    ASSERT_EQ(n2.size(), static_cast<size_t>(12));
 
-  // Two random nonces should differ
-  bool differ = false;
-  for (size_t i = 0; i < 12; ++i) {
-    if (n1[i] != n2[i]) {
-      differ = true;
-      break;
+    // Two random nonces should differ
+    bool differ = false;
+    for (size_t i = 0; i < 12; ++i)
+    {
+        if (n1[i] != n2[i])
+        {
+            differ = true;
+            break;
+        }
     }
-  }
-  ASSERT_TRUE(differ);
+    ASSERT_TRUE(differ);
 }

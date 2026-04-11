@@ -32,52 +32,56 @@
 #include <cstdint>
 #include <cstring>
 
-namespace tinychacha {
-namespace detail {
+namespace tinychacha
+{
+    namespace detail
+    {
 
-inline uint32_t load_le32(const void *src) {
-  uint32_t v;
-  std::memcpy(&v, src, 4);
+        inline uint32_t load_le32(const void *src)
+        {
+            uint32_t v;
+            std::memcpy(&v, src, 4);
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-  v = ((v & 0x000000FFU) << 24) | ((v & 0x0000FF00U) << 8) |
-      ((v & 0x00FF0000U) >> 8) | ((v & 0xFF000000U) >> 24);
+            v = ((v & 0x000000FFU) << 24) | ((v & 0x0000FF00U) << 8) | ((v & 0x00FF0000U) >> 8)
+                | ((v & 0xFF000000U) >> 24);
 #endif
-  return v;
-}
+            return v;
+        }
 
-inline void store_le32(void *dst, uint32_t v) {
+        inline void store_le32(void *dst, uint32_t v)
+        {
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-  v = ((v & 0x000000FFU) << 24) | ((v & 0x0000FF00U) << 8) |
-      ((v & 0x00FF0000U) >> 8) | ((v & 0xFF000000U) >> 24);
+            v = ((v & 0x000000FFU) << 24) | ((v & 0x0000FF00U) << 8) | ((v & 0x00FF0000U) >> 8)
+                | ((v & 0xFF000000U) >> 24);
 #endif
-  std::memcpy(dst, &v, 4);
-}
+            std::memcpy(dst, &v, 4);
+        }
 
-inline uint64_t load_le64(const void *src) {
-  uint64_t v;
-  std::memcpy(&v, src, 8);
+        inline uint64_t load_le64(const void *src)
+        {
+            uint64_t v;
+            std::memcpy(&v, src, 8);
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-  v = ((v & 0x00000000000000FFULL) << 56) |
-      ((v & 0x000000000000FF00ULL) << 40) |
-      ((v & 0x0000000000FF0000ULL) << 24) | ((v & 0x00000000FF000000ULL) << 8) |
-      ((v & 0x000000FF00000000ULL) >> 8) | ((v & 0x0000FF0000000000ULL) >> 24) |
-      ((v & 0x00FF000000000000ULL) >> 40) | ((v & 0xFF00000000000000ULL) >> 56);
+            v = ((v & 0x00000000000000FFULL) << 56) | ((v & 0x000000000000FF00ULL) << 40)
+                | ((v & 0x0000000000FF0000ULL) << 24) | ((v & 0x00000000FF000000ULL) << 8)
+                | ((v & 0x000000FF00000000ULL) >> 8) | ((v & 0x0000FF0000000000ULL) >> 24)
+                | ((v & 0x00FF000000000000ULL) >> 40) | ((v & 0xFF00000000000000ULL) >> 56);
 #endif
-  return v;
-}
+            return v;
+        }
 
-inline void store_le64(void *dst, uint64_t v) {
+        inline void store_le64(void *dst, uint64_t v)
+        {
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-  v = ((v & 0x00000000000000FFULL) << 56) |
-      ((v & 0x000000000000FF00ULL) << 40) |
-      ((v & 0x0000000000FF0000ULL) << 24) | ((v & 0x00000000FF000000ULL) << 8) |
-      ((v & 0x000000FF00000000ULL) >> 8) | ((v & 0x0000FF0000000000ULL) >> 24) |
-      ((v & 0x00FF000000000000ULL) >> 40) | ((v & 0xFF00000000000000ULL) >> 56);
+            v = ((v & 0x00000000000000FFULL) << 56) | ((v & 0x000000000000FF00ULL) << 40)
+                | ((v & 0x0000000000FF0000ULL) << 24) | ((v & 0x00000000FF000000ULL) << 8)
+                | ((v & 0x000000FF00000000ULL) >> 8) | ((v & 0x0000FF0000000000ULL) >> 24)
+                | ((v & 0x00FF000000000000ULL) >> 40) | ((v & 0xFF00000000000000ULL) >> 56);
 #endif
-  std::memcpy(dst, &v, 8);
-}
+            std::memcpy(dst, &v, 8);
+        }
 
-} /* namespace detail */
+    } /* namespace detail */
 } /* namespace tinychacha */
 
 #endif /* TINYCHACHA_INTERNAL_ENDIAN_H */

@@ -1,13 +1,14 @@
 // RFC 8439 AEAD test vectors
 
-struct AeadVector {
-  const char *name;
-  const char *key;
-  const char *nonce;
-  const char *aad;
-  const char *plaintext;
-  const char *ciphertext;
-  const char *tag;
+struct AeadVector
+{
+    const char *name;
+    const char *key;
+    const char *nonce;
+    const char *aad;
+    const char *plaintext;
+    const char *ciphertext;
+    const char *tag;
 };
 
 // RFC 8439 §2.8.2 — AEAD Construction
@@ -45,11 +46,12 @@ static const AeadVector aead_rfc_vectors[] = {
 
 
 // RFC 8439 §2.6.2 — Poly1305 Key Generation test vector
-struct PolyKeyGenVector {
-  const char *name;
-  const char *key;
-  const char *nonce;
-  const char *expected_poly_key; // 32 bytes
+struct PolyKeyGenVector
+{
+    const char *name;
+    const char *key;
+    const char *nonce;
+    const char *expected_poly_key; // 32 bytes
 };
 
 static const PolyKeyGenVector poly_key_gen_vectors[] = {

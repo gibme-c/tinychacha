@@ -25,7 +25,7 @@ Backend availability by platform:
 | Algorithm | Portable | AVX2 | AVX-512 | ARM NEON |
 |-----------|----------|------|---------|----------|
 | ChaCha20 | yes | yes | yes | yes |
-| Poly1305 | yes | yes | — | yes |
+| Poly1305 | yes | yes | — | stub (portable fallthrough) |
 
 ### AEAD Convenience Overloads
 
@@ -44,6 +44,15 @@ All three decrypt overloads mirror the encrypt variants.
 - **Input validation** — all C API functions validate pointers, lengths, and bounds before any computation; invalid inputs return typed error codes
 - **Nonce generation** — cryptographically random nonces via `BCryptGenRandom` (Windows), `getrandom` (Linux), or `/dev/urandom` fallback
 - **Build hardening** — stack protectors, control flow integrity, ASLR, DEP, RELRO, and symbol visibility hiding across GCC, Clang, MSVC, and MinGW
+
+### Nonce usage
+
+RFC 8439 §4 requires: **"A nonce MUST never be used twice with the same key, nor MUST it be guessable."** Reusing a (key, nonce) pair destroys confidentiality — the XOR of the two plaintexts leaks — and allows trivial tag forgery. This is the single most important operational rule when using ChaCha20-Poly1305.
+
+Two safe patterns:
+
+- **Counter-based nonces** — treat the 96-bit nonce as a monotonic counter that persists across process restarts. Simplest for message-oriented protocols where each message is numbered. No collision risk as long as the counter never goes backwards and the same counter value is never used twice under the same key.
+- **Random nonces via `generate_nonce()`** — the library generates 96-bit CSPRNG nonces. Because the nonce is only 96 bits wide, the birthday bound imposes a ~50% collision probability after about 2<sup>48</sup> encryptions **under the same key**. For high-message-count workloads under a long-lived key, either rotate keys (conservative: every ~2<sup>40</sup> messages) or switch to counter-based nonces. If you need to encrypt very large numbers of messages under a single key, an XChaCha20-based construction (192-bit extended nonce) is a better fit — this library does not currently provide one.
 
 ## Building
 

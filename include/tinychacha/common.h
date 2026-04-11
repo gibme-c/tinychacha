@@ -74,15 +74,15 @@
 #define TINYCHACHA_INTERNAL_ERROR (-5)
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-TINYCHACHA_API void tinychacha_secure_zero(void *ptr, size_t len);
+    TINYCHACHA_API void tinychacha_secure_zero(void *ptr, size_t len);
 
-TINYCHACHA_NODISCARD TINYCHACHA_API int
-tinychacha_constant_time_eq(const void *a, const void *b, size_t len);
+    TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_constant_time_eq(const void *a, const void *b, size_t len);
 
-TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_generate_nonce(uint8_t out[12]);
+    TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_generate_nonce(uint8_t out[12]);
 
 #ifdef __cplusplus
 }
@@ -90,35 +90,37 @@ TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_generate_nonce(uint8_t out[12
 
 #ifdef __cplusplus
 
-namespace tinychacha {
+namespace tinychacha
+{
 
-enum class [[nodiscard]] Result {
-  Ok = 0,
-  InvalidKeySize = -1,
-  InvalidNonceSize = -2,
-  InvalidInputSize = -3,
-  AuthenticationFailed = -4,
-  InternalError = -5
-};
+    enum class [[nodiscard]] Result {
+        Ok = 0,
+        InvalidKeySize = -1,
+        InvalidNonceSize = -2,
+        InvalidInputSize = -3,
+        AuthenticationFailed = -4,
+        InternalError = -5};
 
-inline void secure_zero(void *ptr, size_t len) {
-  tinychacha_secure_zero(ptr, len);
-}
+    inline void secure_zero(void *ptr, size_t len)
+    {
+        tinychacha_secure_zero(ptr, len);
+    }
 
-inline bool constant_time_eq(const void *a, const void *b, size_t len) {
-  return tinychacha_constant_time_eq(a, b, len) == 1;
-}
+    inline bool constant_time_eq(const void *a, const void *b, size_t len)
+    {
+        return tinychacha_constant_time_eq(a, b, len) == 1;
+    }
 
-inline bool constant_time_eq(const std::vector<uint8_t> &a,
-                             const std::vector<uint8_t> &b) {
-  if (a.size() != b.size())
-    return false;
-  return constant_time_eq(a.data(), b.data(), a.size());
-}
+    inline bool constant_time_eq(const std::vector<uint8_t> &a, const std::vector<uint8_t> &b)
+    {
+        if (a.size() != b.size())
+            return false;
+        return constant_time_eq(a.data(), b.data(), a.size());
+    }
 
-[[nodiscard]] int generate_nonce(uint8_t *out, size_t len);
+    [[nodiscard]] int generate_nonce(uint8_t *out, size_t len);
 
-[[nodiscard]] std::vector<uint8_t> generate_nonce();
+    [[nodiscard]] std::vector<uint8_t> generate_nonce();
 
 } // namespace tinychacha
 

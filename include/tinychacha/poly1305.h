@@ -31,16 +31,18 @@
 #include "tinychacha/common.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_poly1305_mac(
-    const uint8_t key[32], const uint8_t *message, size_t message_len,
-    uint8_t tag[16]);
+    TINYCHACHA_NODISCARD TINYCHACHA_API int
+        tinychacha_poly1305_mac(const uint8_t key[32], const uint8_t *message, size_t message_len, uint8_t tag[16]);
 
-TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_poly1305_verify(
-    const uint8_t key[32], const uint8_t *message, size_t message_len,
-    const uint8_t tag[16]);
+    TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_poly1305_verify(
+        const uint8_t key[32],
+        const uint8_t *message,
+        size_t message_len,
+        const uint8_t tag[16]);
 
 #ifdef __cplusplus
 }
@@ -50,15 +52,16 @@ TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_poly1305_verify(
 
 #include <vector>
 
-namespace tinychacha {
+namespace tinychacha
+{
 
-[[nodiscard]] Result poly1305_mac(const std::vector<uint8_t> &key,
-                    const std::vector<uint8_t> &message,
-                    std::vector<uint8_t> &tag);
+    [[nodiscard]] Result
+        poly1305_mac(const std::vector<uint8_t> &key, const std::vector<uint8_t> &message, std::vector<uint8_t> &tag);
 
-[[nodiscard]] Result poly1305_verify(const std::vector<uint8_t> &key,
-                       const std::vector<uint8_t> &message,
-                       const std::vector<uint8_t> &tag);
+    [[nodiscard]] Result poly1305_verify(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &message,
+        const std::vector<uint8_t> &tag);
 
 } // namespace tinychacha
 

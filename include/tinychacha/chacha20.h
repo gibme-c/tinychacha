@@ -31,12 +31,17 @@
 #include "tinychacha/common.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_chacha20(
-    const uint8_t key[32], const uint8_t nonce[12], uint32_t counter,
-    const uint8_t *input, size_t input_len, uint8_t *output);
+    TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_chacha20(
+        const uint8_t key[32],
+        const uint8_t nonce[12],
+        uint32_t counter,
+        const uint8_t *input,
+        size_t input_len,
+        uint8_t *output);
 
 #ifdef __cplusplus
 }
@@ -46,16 +51,22 @@ TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_chacha20(
 
 #include <vector>
 
-namespace tinychacha {
+namespace tinychacha
+{
 
-[[nodiscard]] Result chacha20(const std::vector<uint8_t> &key,
-                const std::vector<uint8_t> &nonce, uint32_t counter,
-                const std::vector<uint8_t> &input,
-                std::vector<uint8_t> &output);
+    [[nodiscard]] Result chacha20(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        uint32_t counter,
+        const std::vector<uint8_t> &input,
+        std::vector<uint8_t> &output);
 
-[[nodiscard]] Result chacha20_keystream(const std::vector<uint8_t> &key,
-                          const std::vector<uint8_t> &nonce, uint32_t counter,
-                          size_t length, std::vector<uint8_t> &output);
+    [[nodiscard]] Result chacha20_keystream(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        uint32_t counter,
+        size_t length,
+        std::vector<uint8_t> &output);
 
 } // namespace tinychacha
 

@@ -1,10 +1,11 @@
 // RFC 8439 Poly1305 test vectors
 
-struct Poly1305Vector {
-  const char *name;
-  const char *key; // 32 bytes: r (16) || s (16)
-  const char *message;
-  const char *tag; // 16 bytes
+struct Poly1305Vector
+{
+    const char *name;
+    const char *key; // 32 bytes: r (16) || s (16)
+    const char *message;
+    const char *tag; // 16 bytes
 };
 
 // RFC 8439 §2.5.2 — Poly1305 MAC

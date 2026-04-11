@@ -1,12 +1,13 @@
 // RFC 8439 ChaCha20 test vectors
 
-struct ChaCha20Vector {
-  const char *name;
-  const char *key;
-  const char *nonce;
-  uint32_t counter;
-  const char *plaintext;
-  const char *ciphertext;
+struct ChaCha20Vector
+{
+    const char *name;
+    const char *key;
+    const char *nonce;
+    uint32_t counter;
+    const char *plaintext;
+    const char *ciphertext;
 };
 
 // RFC 8439 §2.4.2 — ChaCha20 Encryption
@@ -36,12 +37,13 @@ static const ChaCha20Vector chacha20_encryption_vectors[] = {
 };
 
 // Keystream test vectors — plaintext is all zeros, so ciphertext = keystream
-struct ChaCha20KeystreamVector {
-  const char *name;
-  const char *key;
-  const char *nonce;
-  uint32_t counter;
-  const char *keystream; // 64 bytes
+struct ChaCha20KeystreamVector
+{
+    const char *name;
+    const char *key;
+    const char *nonce;
+    uint32_t counter;
+    const char *keystream; // 64 bytes
 };
 
 // RFC 8439 §2.3.2 + Appendix A.1

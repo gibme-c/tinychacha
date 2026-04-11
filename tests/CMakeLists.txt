@@ -8,6 +8,7 @@ add_executable(tinychacha_tests
     test_cpuid.cpp
     test_fuzz.cpp
     test_security.cpp
+    test_backend_equivalence.cpp
 )
 
 target_link_libraries(tinychacha_tests PRIVATE tinychacha)

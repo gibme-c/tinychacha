@@ -27,105 +27,124 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "tinychacha/chacha20.h"
+
 #include "cpu_features.h"
 #include "internal/chacha20_impl.h"
 
-namespace tinychacha {
-namespace internal {
+namespace tinychacha
+{
+    namespace internal
+    {
 
-chacha20_block_fn get_chacha20_block() {
+        chacha20_block_fn get_chacha20_block()
+        {
 #if !defined(TINYCHACHA_FORCE_PORTABLE)
-  const auto &feat = cpu::detect();
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) ||             \
-    defined(_M_IX86)
-  if (feat.avx512f)
-    return chacha20_avx512;
-  if (feat.avx2)
-    return chacha20_avx2;
+            const auto &feat = cpu::detect();
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+            if (feat.avx512f)
+                return chacha20_avx512;
+            if (feat.avx2)
+                return chacha20_avx2;
 #endif
 #if defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
-  if (feat.neon)
-    return chacha20_neon;
+            if (feat.neon)
+                return chacha20_neon;
 #endif
 #endif
-  return chacha20_portable;
-}
+            return chacha20_portable;
+        }
 
-} // namespace internal
+    } // namespace internal
 
-// Check that the message won't cause counter overflow
-static bool counter_would_overflow(uint32_t counter, size_t len) {
-  if (len == 0)
-    return false;
-  // Number of blocks needed: ceil(len / 64)
-  uint64_t blocks_needed = (static_cast<uint64_t>(len) + 63) / 64;
-  uint64_t blocks_available = static_cast<uint64_t>(0xFFFFFFFF) - counter + 1;
-  return blocks_needed > blocks_available;
-}
+    Result chacha20(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        uint32_t counter,
+        const std::vector<uint8_t> &input,
+        std::vector<uint8_t> &output)
+    {
+        try
+        {
+            if (key.size() != 32)
+                return Result::InvalidKeySize;
+            if (nonce.size() != 12)
+                return Result::InvalidNonceSize;
+            if (internal::counter_would_overflow(counter, input.size()))
+                return Result::InvalidInputSize;
 
-Result chacha20(const std::vector<uint8_t> &key,
-                const std::vector<uint8_t> &nonce, uint32_t counter,
-                const std::vector<uint8_t> &input,
-                std::vector<uint8_t> &output) {
-  if (key.size() != 32)
-    return Result::InvalidKeySize;
-  if (nonce.size() != 12)
-    return Result::InvalidNonceSize;
-  if (counter_would_overflow(counter, input.size()))
-    return Result::InvalidInputSize;
+            output.resize(input.size());
+            if (input.empty())
+                return Result::Ok;
 
-  output.resize(input.size());
-  if (input.empty())
-    return Result::Ok;
+            auto block_fn = internal::get_chacha20_block();
+            block_fn(key.data(), nonce.data(), counter, input.data(), input.size(), output.data());
+            return Result::Ok;
+        }
+        catch (...)
+        {
+            return Result::InternalError;
+        }
+    }
 
-  auto block_fn = internal::get_chacha20_block();
-  block_fn(key.data(), nonce.data(), counter, input.data(), input.size(),
-           output.data());
-  return Result::Ok;
-}
+    Result chacha20_keystream(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        uint32_t counter,
+        size_t length,
+        std::vector<uint8_t> &output)
+    {
+        try
+        {
+            if (key.size() != 32)
+                return Result::InvalidKeySize;
+            if (nonce.size() != 12)
+                return Result::InvalidNonceSize;
+            if (internal::counter_would_overflow(counter, length))
+                return Result::InvalidInputSize;
 
-Result chacha20_keystream(const std::vector<uint8_t> &key,
-                          const std::vector<uint8_t> &nonce, uint32_t counter,
-                          size_t length, std::vector<uint8_t> &output) {
-  if (key.size() != 32)
-    return Result::InvalidKeySize;
-  if (nonce.size() != 12)
-    return Result::InvalidNonceSize;
-  if (counter_would_overflow(counter, length))
-    return Result::InvalidInputSize;
+            // Generate keystream by encrypting zeros
+            std::vector<uint8_t> zeros(length, 0);
+            output.resize(length);
+            if (length == 0)
+                return Result::Ok;
 
-  // Generate keystream by encrypting zeros
-  std::vector<uint8_t> zeros(length, 0);
-  output.resize(length);
-  if (length == 0)
-    return Result::Ok;
-
-  auto block_fn = internal::get_chacha20_block();
-  block_fn(key.data(), nonce.data(), counter, zeros.data(), length,
-           output.data());
-  return Result::Ok;
-}
+            auto block_fn = internal::get_chacha20_block();
+            block_fn(key.data(), nonce.data(), counter, zeros.data(), length, output.data());
+            return Result::Ok;
+        }
+        catch (...)
+        {
+            return Result::InternalError;
+        }
+    }
 
 } // namespace tinychacha
 
-extern "C" int tinychacha_chacha20(const uint8_t key[32],
-                                   const uint8_t nonce[12], uint32_t counter,
-                                   const uint8_t *input, size_t input_len,
-                                   uint8_t *output) {
-  if (!key || !nonce || (!input && input_len > 0) || (!output && input_len > 0))
-    return TINYCHACHA_INTERNAL_ERROR;
+extern "C" int tinychacha_chacha20(
+    const uint8_t key[32],
+    const uint8_t nonce[12],
+    uint32_t counter,
+    const uint8_t *input,
+    size_t input_len,
+    uint8_t *output)
+{
+    if (!key || !nonce || (!input && input_len > 0) || (!output && input_len > 0))
+        return TINYCHACHA_INTERNAL_ERROR;
 
-  if (input_len == 0)
-    return TINYCHACHA_OK;
+    if (input_len == 0)
+        return TINYCHACHA_OK;
 
-  if (tinychacha::counter_would_overflow(counter, input_len))
-    return TINYCHACHA_INVALID_INPUT_SIZE;
+    if (tinychacha::internal::counter_would_overflow(counter, input_len))
+        return TINYCHACHA_INVALID_INPUT_SIZE;
 
-  try {
-    auto block_fn = tinychacha::internal::get_chacha20_block();
-    block_fn(key, nonce, counter, input, input_len, output);
-    return TINYCHACHA_OK;
-  } catch (...) {
-    return TINYCHACHA_INTERNAL_ERROR;
-  }
+    try
+    {
+        auto block_fn = tinychacha::internal::get_chacha20_block();
+        block_fn(key, nonce, counter, input, input_len, output);
+        return TINYCHACHA_OK;
+    }
+    catch (...)
+    {
+        return TINYCHACHA_INTERNAL_ERROR;
+    }
 }

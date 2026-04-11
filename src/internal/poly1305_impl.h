@@ -32,27 +32,26 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace tinychacha {
-namespace internal {
+namespace tinychacha
+{
+    namespace internal
+    {
 
-// Computes Poly1305 MAC.
-// key: 32 bytes (r || s), message: arbitrary length, tag: 16-byte output
-using poly1305_mac_fn = void (*)(const uint8_t key[32], const uint8_t *message,
-                                 size_t message_len, uint8_t tag[16]);
+        // Computes Poly1305 MAC.
+        // key: 32 bytes (r || s), message: arbitrary length, tag: 16-byte output
+        using poly1305_mac_fn =
+            void (*)(const uint8_t key[32], const uint8_t *message, size_t message_len, uint8_t tag[16]);
 
-// Backend declarations
-void poly1305_portable(const uint8_t key[32], const uint8_t *message,
-                       size_t message_len, uint8_t tag[16]);
+        // Backend declarations
+        void poly1305_portable(const uint8_t key[32], const uint8_t *message, size_t message_len, uint8_t tag[16]);
 
-void poly1305_avx2(const uint8_t key[32], const uint8_t *message,
-                   size_t message_len, uint8_t tag[16]);
+        void poly1305_avx2(const uint8_t key[32], const uint8_t *message, size_t message_len, uint8_t tag[16]);
 
-void poly1305_neon(const uint8_t key[32], const uint8_t *message,
-                   size_t message_len, uint8_t tag[16]);
+        void poly1305_neon(const uint8_t key[32], const uint8_t *message, size_t message_len, uint8_t tag[16]);
 
-poly1305_mac_fn get_poly1305_mac();
+        poly1305_mac_fn get_poly1305_mac();
 
-} /* namespace internal */
+    } /* namespace internal */
 } /* namespace tinychacha */
 
 #endif /* TINYCHACHA_INTERNAL_POLY1305_IMPL_H */

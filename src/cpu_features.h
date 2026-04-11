@@ -31,18 +31,21 @@
 
 #include "tinychacha/common.h"
 
-namespace tinychacha {
-namespace cpu {
+namespace tinychacha
+{
+    namespace cpu
+    {
 
-struct Features {
-  bool avx2 = false;
-  bool avx512f = false;
-  bool neon = false;
-};
+        struct Features
+        {
+            bool avx2 = false;
+            bool avx512f = false;
+            bool neon = false;
+        };
 
-const Features &detect();
+        const Features &detect();
 
-} /* namespace cpu */
+    } /* namespace cpu */
 } /* namespace tinychacha */
 
 #endif /* TINYCHACHA_CPU_FEATURES_H */

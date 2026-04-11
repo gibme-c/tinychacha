@@ -39,43 +39,46 @@
 #include <stdlib.h>
 #endif
 
-namespace tinychacha {
+namespace tinychacha
+{
 
-int generate_nonce(uint8_t *out, size_t len) {
-  if (!out || len == 0)
-    return TINYCHACHA_INTERNAL_ERROR;
+    int generate_nonce(uint8_t *out, size_t len)
+    {
+        if (!out || len == 0)
+            return TINYCHACHA_INTERNAL_ERROR;
 
 #if defined(_WIN32)
-  NTSTATUS status = BCryptGenRandom(nullptr, out, static_cast<ULONG>(len),
-                                    BCRYPT_USE_SYSTEM_PREFERRED_RNG);
-  return BCRYPT_SUCCESS(status) ? 0 : TINYCHACHA_INTERNAL_ERROR;
+        NTSTATUS status = BCryptGenRandom(nullptr, out, static_cast<ULONG>(len), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+        return BCRYPT_SUCCESS(status) ? 0 : TINYCHACHA_INTERNAL_ERROR;
 #elif defined(__linux__)
-  ssize_t ret = getrandom(out, len, 0);
-  return (ret == static_cast<ssize_t>(len)) ? 0 : TINYCHACHA_INTERNAL_ERROR;
+        ssize_t ret = getrandom(out, len, 0);
+        return (ret == static_cast<ssize_t>(len)) ? 0 : TINYCHACHA_INTERNAL_ERROR;
 #elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
-  arc4random_buf(out, len);
-  return 0;
+        arc4random_buf(out, len);
+        return 0;
 #else
-  FILE *f = fopen("/dev/urandom", "rb");
-  if (!f)
-    return TINYCHACHA_INTERNAL_ERROR;
-  size_t n = fread(out, 1, len, f);
-  fclose(f);
-  return (n == len) ? 0 : TINYCHACHA_INTERNAL_ERROR;
+        FILE *f = fopen("/dev/urandom", "rb");
+        if (!f)
+            return TINYCHACHA_INTERNAL_ERROR;
+        size_t n = fread(out, 1, len, f);
+        fclose(f);
+        return (n == len) ? 0 : TINYCHACHA_INTERNAL_ERROR;
 #endif
-}
+    }
 
-std::vector<uint8_t> generate_nonce() {
-  std::vector<uint8_t> nonce(12);
-  if (generate_nonce(nonce.data(), 12) != 0)
-    nonce.clear();
-  return nonce;
-}
+    std::vector<uint8_t> generate_nonce()
+    {
+        std::vector<uint8_t> nonce(12);
+        if (generate_nonce(nonce.data(), 12) != 0)
+            nonce.clear();
+        return nonce;
+    }
 
 } // namespace tinychacha
 
-extern "C" int tinychacha_generate_nonce(uint8_t out[12]) {
-  if (!out)
-    return TINYCHACHA_INTERNAL_ERROR;
-  return tinychacha::generate_nonce(out, 12);
+extern "C" int tinychacha_generate_nonce(uint8_t out[12])
+{
+    if (!out)
+        return TINYCHACHA_INTERNAL_ERROR;
+    return tinychacha::generate_nonce(out, 12);
 }

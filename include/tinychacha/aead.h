@@ -31,18 +31,31 @@
 #include "tinychacha/common.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_aead_encrypt(
-    const uint8_t key[32], const uint8_t nonce[12], const uint8_t *aad,
-    size_t aad_len, const uint8_t *plaintext, size_t plaintext_len,
-    uint8_t *ciphertext, size_t ciphertext_len, uint8_t tag[16]);
+    TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_aead_encrypt(
+        const uint8_t key[32],
+        const uint8_t nonce[12],
+        const uint8_t *aad,
+        size_t aad_len,
+        const uint8_t *plaintext,
+        size_t plaintext_len,
+        uint8_t *ciphertext,
+        size_t ciphertext_len,
+        uint8_t tag[16]);
 
-TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_aead_decrypt(
-    const uint8_t key[32], const uint8_t nonce[12], const uint8_t *aad,
-    size_t aad_len, const uint8_t *ciphertext, size_t ciphertext_len,
-    uint8_t *plaintext, size_t plaintext_len, const uint8_t tag[16]);
+    TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_aead_decrypt(
+        const uint8_t key[32],
+        const uint8_t nonce[12],
+        const uint8_t *aad,
+        size_t aad_len,
+        const uint8_t *ciphertext,
+        size_t ciphertext_len,
+        uint8_t *plaintext,
+        size_t plaintext_len,
+        const uint8_t tag[16]);
 
 #ifdef __cplusplus
 }
@@ -52,48 +65,55 @@ TINYCHACHA_NODISCARD TINYCHACHA_API int tinychacha_aead_decrypt(
 
 #include <vector>
 
-namespace tinychacha {
+namespace tinychacha
+{
 
-// Full separation: separate ciphertext and tag outputs
-[[nodiscard]] Result aead_encrypt(const std::vector<uint8_t> &key,
-                    const std::vector<uint8_t> &nonce,
-                    const std::vector<uint8_t> &aad,
-                    const std::vector<uint8_t> &plaintext,
-                    std::vector<uint8_t> &ciphertext,
-                    std::vector<uint8_t> &tag);
+    // Full separation: separate ciphertext and tag outputs
+    [[nodiscard]] Result aead_encrypt(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        const std::vector<uint8_t> &aad,
+        const std::vector<uint8_t> &plaintext,
+        std::vector<uint8_t> &ciphertext,
+        std::vector<uint8_t> &tag);
 
-[[nodiscard]] Result aead_decrypt(const std::vector<uint8_t> &key,
-                    const std::vector<uint8_t> &nonce,
-                    const std::vector<uint8_t> &aad,
-                    const std::vector<uint8_t> &ciphertext,
-                    const std::vector<uint8_t> &tag,
-                    std::vector<uint8_t> &plaintext);
+    [[nodiscard]] Result aead_decrypt(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        const std::vector<uint8_t> &aad,
+        const std::vector<uint8_t> &ciphertext,
+        const std::vector<uint8_t> &tag,
+        std::vector<uint8_t> &plaintext);
 
-// Caller provides nonce, tag appended to ciphertext
-[[nodiscard]] Result aead_encrypt(const std::vector<uint8_t> &key,
-                    const std::vector<uint8_t> &nonce,
-                    const std::vector<uint8_t> &plaintext,
-                    const std::vector<uint8_t> &aad,
-                    std::vector<uint8_t> &ciphertext_and_tag);
+    // Caller provides nonce, tag appended to ciphertext
+    [[nodiscard]] Result aead_encrypt(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        const std::vector<uint8_t> &plaintext,
+        const std::vector<uint8_t> &aad,
+        std::vector<uint8_t> &ciphertext_and_tag);
 
-// Caller provides nonce, input is ciphertext||tag
-[[nodiscard]] Result aead_decrypt(const std::vector<uint8_t> &key,
-                    const std::vector<uint8_t> &nonce,
-                    const std::vector<uint8_t> &ciphertext_and_tag,
-                    const std::vector<uint8_t> &aad,
-                    std::vector<uint8_t> &plaintext);
+    // Caller provides nonce, input is ciphertext||tag
+    [[nodiscard]] Result aead_decrypt(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce,
+        const std::vector<uint8_t> &ciphertext_and_tag,
+        const std::vector<uint8_t> &aad,
+        std::vector<uint8_t> &plaintext);
 
-// Library generates nonce, output is nonce||ciphertext||tag
-[[nodiscard]] Result aead_encrypt(const std::vector<uint8_t> &key,
-                    const std::vector<uint8_t> &plaintext,
-                    const std::vector<uint8_t> &aad,
-                    std::vector<uint8_t> &nonce_ciphertext_tag);
+    // Library generates nonce, output is nonce||ciphertext||tag
+    [[nodiscard]] Result aead_encrypt(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &plaintext,
+        const std::vector<uint8_t> &aad,
+        std::vector<uint8_t> &nonce_ciphertext_tag);
 
-// Nonce is first 12 bytes of input, rest is ciphertext||tag
-[[nodiscard]] Result aead_decrypt(const std::vector<uint8_t> &key,
-                    const std::vector<uint8_t> &nonce_ciphertext_tag,
-                    const std::vector<uint8_t> &aad,
-                    std::vector<uint8_t> &plaintext);
+    // Nonce is first 12 bytes of input, rest is ciphertext||tag
+    [[nodiscard]] Result aead_decrypt(
+        const std::vector<uint8_t> &key,
+        const std::vector<uint8_t> &nonce_ciphertext_tag,
+        const std::vector<uint8_t> &aad,
+        std::vector<uint8_t> &plaintext);
 
 } // namespace tinychacha
 

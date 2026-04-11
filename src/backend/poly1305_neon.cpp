@@ -28,17 +28,20 @@
 
 #include "internal/poly1305_impl.h"
 
-// Poly1305 NEON: defer to portable for now.
-// A full vectorized radix-2^26 implementation with r^2/r^4 precomputation
-// can be added later for improved throughput on large messages.
+// STUB: pass-through fallback to poly1305_portable so the runtime dispatch
+// table stays symmetric with x86. A real NEON implementation can mirror the
+// 4-way Horner structure used in poly1305_avx2.cpp; the cross-backend
+// equivalence test gates any future replacement against the scalar reference.
 
-namespace tinychacha {
-namespace internal {
+namespace tinychacha
+{
+    namespace internal
+    {
 
-void poly1305_neon(const uint8_t key[32], const uint8_t *message,
-                   size_t message_len, uint8_t tag[16]) {
-  poly1305_portable(key, message, message_len, tag);
-}
+        void poly1305_neon(const uint8_t key[32], const uint8_t *message, size_t message_len, uint8_t tag[16])
+        {
+            poly1305_portable(key, message, message_len, tag);
+        }
 
-} // namespace internal
+    } // namespace internal
 } // namespace tinychacha
